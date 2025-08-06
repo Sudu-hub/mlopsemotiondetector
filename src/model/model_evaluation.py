@@ -1,11 +1,16 @@
 # model eval
+import mlflow
 import numpy as np
 import pandas as pd
 import pickle
 import json
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
 import logging
+import dagshub
 
+dagshub.init(repo_owner='sudarshansahane1044', repo_name='mlopsemotiondetector', mlflow=True)
+
+mlflow.set_tracking_uri("https://dagshub.com/sudarshansahane1044/mlopsemotiondetector.mlflow")
 # logging configuration
 logger = logging.getLogger('model_evaluation')
 logger.setLevel('DEBUG')
@@ -50,28 +55,36 @@ def load_data(file_path: str) -> pd.DataFrame:
         logger.error('Unexpected error occurred while loading the data: %s', e)
         raise
 
-def evaluate_model(clf, X_test: np.ndarray, y_test: np.ndarray) -> dict:
-    """Evaluate the model and return the evaluation metrics."""
-    try:
-        y_pred = clf.predict(X_test)
-        y_pred_proba = clf.predict_proba(X_test)[:, 1]
+mlflow.set_experiment('emotion_detector')
+with mlflow.start_run():
+    def evaluate_model(clf, X_test: np.ndarray, y_test: np.ndarray) -> dict:
+        """Evaluate the model and return the evaluation metrics."""
+        try:
+            y_pred = clf.predict(X_test)
+            y_pred_proba = clf.predict_proba(X_test)[:, 1]
 
-        accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        auc = roc_auc_score(y_test, y_pred_proba)
-
-        metrics_dict = {
-            'accuracy': accuracy,
-            'precision': precision,
-            'recall': recall,
-            'auc': auc
-        }
-        logger.debug('Model evaluation metrics calculated')
-        return metrics_dict
-    except Exception as e:
-        logger.error('Error during model evaluation: %s', e)
-        raise
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            auc = roc_auc_score(y_test, y_pred_proba)
+            
+            mlflow.log_metric('accuracy:',accuracy)
+            mlflow.log_metric('precision:',precision)
+            mlflow.log_metric('recall:',recall)
+            mlflow.log_metric('auc:',auc)
+            
+            mlflow.set_tag('author','sudarshan')
+            metrics_dict = {
+                'accuracy': accuracy,
+                'precision': precision,
+                'recall': recall,
+                'auc': auc
+            }
+            logger.debug('Model evaluation metrics calculated')
+            return metrics_dict
+        except Exception as e:
+            logger.error('Error during model evaluation: %s', e)
+            raise
 
 def save_metrics(metrics: dict, file_path: str) -> None:
     """Save the evaluation metrics to a JSON file."""

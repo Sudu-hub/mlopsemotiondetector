@@ -1,11 +1,15 @@
 # model building
-
+import mlflow
 import numpy as np
 import pandas as pd
 import pickle
 from sklearn.ensemble import GradientBoostingClassifier
 import yaml
 import logging
+import dagshub
+
+dagshub.init(repo_owner='sudarshansahane1044', repo_name='mlopsemotiondetector', mlflow=True)
+mlflow.set_tracking_uri("https://dagshub.com/sudarshansahane1044/mlopsemotiondetector.mlflow")
 
 # logging configuration
 logger = logging.getLogger('model_building')
@@ -31,6 +35,7 @@ def load_params(params_path: str) -> dict:
             params = yaml.safe_load(file)
         logger.debug('Parameters retrieved from %s', params_path)
         return params
+    
     except FileNotFoundError:
         logger.error('File not found: %s', params_path)
         raise
@@ -78,7 +83,8 @@ def save_model(model, file_path: str) -> None:
 def main():
     try:
         params = load_params('params.yaml')['model_building']
-
+        mlflow.log_param('params:',params)
+        mlflow.log_artifact(__file__)
         train_data = load_data('./data/processed/train_tfidf.csv')
         X_train = train_data.iloc[:, :-1].values
         y_train = train_data.iloc[:, -1].values
@@ -86,6 +92,7 @@ def main():
         clf = train_model(X_train, y_train, params)
         
         save_model(clf, 'models/model.pkl')
+        mlflow.sklearn.log_model(clf, 'GradientBoosting')
     except Exception as e:
         logger.error('Failed to complete the model building process: %s', e)
         print(f"Error: {e}")
